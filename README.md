@@ -43,6 +43,8 @@ echo " [x] Deploying function to GCP"
 gcloud functions deploy "${TRIGGER_NAME}" --set-env-vars "CFG_PREFIX=${PREFIX}" --set-env-vars "CFG_WIDTH=${WIDTH}" --set-env-vars "CFG_HEIGHT=${HEIGHT}" --runtime go111 --entry-point Resize --trigger-resource ${BUCKET} --trigger-event google.storage.object.finalize --memory 128MB --retry --region ${REGION}
 
 popd >/dev/null
+
+rm -rf ./gcs-resize-hook
 ```
 
 ## License
