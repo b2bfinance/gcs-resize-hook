@@ -109,8 +109,21 @@ func Resize(ctx context.Context, e GCSEvent) error {
 	}
 
 	rec := img.Bounds()
-	log.Printf("original image width: %d", rec.Dx())
-	log.Printf("original image height: %d", rec.Dy())
+	ow := rec.Dx()
+	oh := rec.Dy()
+	log.Printf("original image width: %d", ow)
+	log.Printf("original image height: %d", oh)
+
+	if cfgWidth > 0 && cfgHeight > 0 && cfgWidth >= ow && cfgHeight >= oh {
+		log.Println("skipping, the image width and height is equal or smaller then required")
+		return nil
+	} else if cfgWidth > 0 && cfgWidth >= ow {
+		log.Println("skipping, the image width is equal or smaller then required")
+		return nil
+	} else if cfgHeight > 0 && cfgHeight >= oh {
+		log.Println("skipping, the image height is equal or smaller then required")
+		return nil
+	}
 
 	log.Println("resizing image")
 	output := imaging.Resize(img, cfgWidth, cfgHeight, imaging.Lanczos)
