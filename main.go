@@ -66,15 +66,21 @@ func Resize(ctx context.Context, e GCSEvent) error {
 		return fmt.Errorf("failed to create storage client: %v", err)
 	}
 
+	log.Printf("event ID: %s\n", meta.EventID)
+	log.Printf("event type: %s\n", meta.EventType)
+	log.Printf("bucket: %s\n", e.Bucket)
+	log.Printf("file: %s\n", e.Name)
+	log.Printf("configured prefix: %s\n", cfgPrefix)
+	log.Printf("configured width: %d\n", cfgWidth)
+	log.Printf("configured height: %d\n", cfgHeight)
+
 	if !strings.HasPrefix(strings.TrimLeft(e.Name, "/"), strings.TrimPrefix(cfgPrefix, "/")) {
-		if os.Getenv("DEBUG") != "" {
-			log.Printf(
-				"skipping event %s prefix (%s) does not match: %s",
-				meta.EventID,
-				cfgPrefix,
-				e.Name,
-			)
-		}
+		log.Printf(
+			"skipping event %s prefix (%s) does not match: %s",
+			meta.EventID,
+			cfgPrefix,
+			e.Name,
+		)
 		return nil
 	}
 
@@ -83,12 +89,14 @@ func Resize(ctx context.Context, e GCSEvent) error {
 		// only return value possible from current code is imaging.ErrUnsupportedFormat
 		return fmt.Errorf("unsupported image format %s", e.Name)
 	}
+	log.Println("the image format is supported")
 
 	obj := client.Bucket(e.Bucket).Object(e.Name)
 
 	or, err := obj.NewReader(ctx)
 	if err != nil {
 		if err == storage.ErrObjectNotExist {
+			log.Println("skipping, we are unable to find the object")
 			return nil
 		}
 
@@ -100,6 +108,23 @@ func Resize(ctx context.Context, e GCSEvent) error {
 		return fmt.Errorf("unable to read image: %v", err)
 	}
 
-	output := imaging.Resize(img, 240, 0, imaging.Lanczos)
-	return imaging.Encode(obj.NewWriter(ctx), output, f)
+	rec := img.Bounds()
+	log.Printf("original image width: %d", rec.Dx())
+	log.Printf("original image height: %d", rec.Dy())
+
+	log.Println("resizing image")
+	output := imaging.Resize(img, cfgWidth, cfgHeight, imaging.Lanczos)
+	log.Println("resized image")
+
+	log.Println("writing image")
+	w := obj.NewWriter(ctx)
+	if err := imaging.Encode(w, output, f); err != nil {
+		return fmt.Errorf("unable to write to image: %s", err.Error())
+	}
+
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("unable to finalise image: %s", err.Error())
+	}
+
+	return nil
 }
